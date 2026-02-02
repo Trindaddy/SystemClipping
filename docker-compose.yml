@@ -1,0 +1,60 @@
+services:
+  # --- Banco de Dados ---
+  db:
+    image: postgres:16-alpine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=clipping_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "5432:5432"
+
+  # --- Fila de Mensagens ---
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+
+  # --- Automação (N8n) ---
+  n8n:
+    # Fixando uma versão estável para evitar erros de download da 'latest'
+    image: n8nio/n8n:1.25.1
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=admin
+      - N8N_BASIC_AUTH_PASSWORD=admin
+    volumes:
+      - ./n8n_data:/home/node/.n8n
+    depends_on:
+      - db
+
+  # --- API Django ---
+  api:
+    build: ./backend
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      - db
+      - redis
+
+  # --- Frontend React ---
+  web:
+    build: ./frontend
+    command: npm run dev -- --host
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+
+volumes:
+  postgres_data:

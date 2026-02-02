@@ -1,0 +1,9 @@
+django
+django-ninja
+psycopg[binary]
+celery
+redis
+python-decouple
+gunicorn
+requests
+django-cors-headers
