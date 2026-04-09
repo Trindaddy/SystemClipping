@@ -1,5 +1,10 @@
-import { useEffect, useState, useRef } from 'react'
-import { LayoutDashboard, Newspaper, Search, ExternalLink, RefreshCw, Download, Bell, BarChart2, Filter, Plus, X } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Search, RefreshCw, Filter, Plus, LogIn, Moon, Sun, ChevronLeft, ChevronRight } from 'lucide-react'
+
+import AuthModal from './components/AuthModal'
+import Sidebar from './components/Sidebar'
+import NewsCard from './components/NewsCard'
+import Dashboard from './components/Dashboard'
 
 function App() {
   const [noticias, setNoticias] = useState([])
@@ -7,15 +12,22 @@ function App() {
   const [busca, setBusca] = useState('')
   const [filtroSentimento, setFiltroSentimento] = useState('TODOS')
   
-  // ESTADOS DO MODAL MANUAL
-  const [showModal, setShowModal] = useState(false)
-  const [formManual, setFormManual] = useState({
-    titulo: '',
-    conteudo: '',
-    link_original: '',
-    fonte_nome: '',
-    sentimento: 'NEU'
-  })
+  const [isLogado, setIsLogado] = useState(false)
+  const [showAuthModal, setShowAuthModal] = useState(false)
+  const [showAlertModal, setShowAlertModal] = useState(false)
+  const [darkMode, setDarkMode] = useState(false)
+  const [telaAtiva, setTelaAtiva] = useState('midia')
+
+  // ==========================================
+  // ESTADOS DE PAGINAÇÃO
+  // ==========================================
+  const [paginaAtual, setPaginaAtual] = useState(1)
+  const itensPorPagina = 12 // Mostra 12 cards por vez (4 linhas de 3)
+
+  useEffect(() => {
+    if (darkMode) document.documentElement.classList.add('dark');
+    else document.documentElement.classList.remove('dark');
+  }, [darkMode])
 
   const carregarNoticias = () => {
     setLoading(true)
@@ -23,237 +35,147 @@ function App() {
       .then(response => response.json())
       .then(data => {
         const ordenadas = data.sort((a, b) => new Date(b.data_publicacao) - new Date(a.data_publicacao))
-        setNoticias(ordenadas)
+        setNoticias(ordenadas) // Carrega tudo na memória (JSON é leve)
         setLoading(false)
       })
-      .catch(error => {
-        console.error("Erro:", error)
-        setLoading(false)
-      })
+      .catch(error => { console.error("Erro:", error); setLoading(false) })
   }
 
+  useEffect(() => { carregarNoticias() }, [])
+
+  // Sempre que buscar ou filtrar, volta para a página 1
   useEffect(() => {
-    carregarNoticias()
-  }, [])
+    setPaginaAtual(1)
+  }, [busca, filtroSentimento])
 
-  // FUNÇÃO PARA SALVAR NOTÍCIA MANUAL
-  const handleSalvarManual = async (e) => {
-    e.preventDefault();
-    const payload = {
-      ...formManual,
-      // Força a data atual para a notícia manual
-      data_publicacao: new Date().toISOString() 
-    };
-
-    try {
-      // Faz o POST para a sua API Django
-      const response = await fetch('http://localhost:8000/api/noticias/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload)
-      });
-
-      if (response.ok) {
-        setShowModal(false); // Fecha o modal
-        setFormManual({ titulo: '', conteudo: '', link_original: '', fonte_nome: '', sentimento: 'NEU' }); // Limpa o form
-        carregarNoticias(); // Recarrega a tela para mostrar a nova notícia
-      } else {
-        alert("Erro ao salvar a notícia no banco de dados.");
-      }
-    } catch (error) {
-      console.error("Erro na requisição:", error);
-    }
-  }
-
+  // ==========================================
+  // LÓGICA DE FILTRO E PAGINAÇÃO
+  // ==========================================
   const noticiasFiltradas = noticias.filter(noticia => {
-    const matchBusca = noticia.titulo.toLowerCase().includes(busca.toLowerCase()) ||
-                       (noticia.conteudo && noticia.conteudo.toLowerCase().includes(busca.toLowerCase()));
+    const matchBusca = noticia.titulo.toLowerCase().includes(busca.toLowerCase()) || (noticia.conteudo && noticia.conteudo.toLowerCase().includes(busca.toLowerCase()));
     const matchSentimento = filtroSentimento === 'TODOS' || noticia.sentimento === filtroSentimento;
     return matchBusca && matchSentimento;
   })
 
-  const getSentimentStyle = (sentimento) => {
-    if (sentimento === 'POS') return 'bg-emerald-100 text-emerald-800 border-emerald-200'
-    if (sentimento === 'NEG') return 'bg-red-600 text-white border-red-700 animate-pulse'
-    return 'bg-slate-100 text-slate-800 border-slate-200'
-  }
+  // Matemática da Paginação
+  const totalPaginas = Math.ceil(noticiasFiltradas.length / itensPorPagina)
+  const indexUltimoItem = paginaAtual * itensPorPagina
+  const indexPrimeiroItem = indexUltimoItem - itensPorPagina
+  const noticiasExibidas = noticiasFiltradas.slice(indexPrimeiroItem, indexUltimoItem)
 
   return (
-    <div className="flex min-h-screen bg-slate-50 font-sans relative">
+    <div className="flex min-h-screen bg-[#F0F4F8] dark:bg-[#071a2f] font-sans relative transition-colors duration-300">
       
-      {/* Sidebar CIGÁS */}
-      <aside className="w-64 bg-[#0a2540] text-white fixed h-full hidden md:flex flex-col z-10 shadow-xl">
-        <div className="p-6 border-b border-slate-700">
-          <h1 className="text-2xl font-black tracking-tight text-white flex flex-col gap-1">
-            <span className="text-xs font-semibold text-blue-400 uppercase tracking-widest">Ambiente Exclusivo</span>
-            CIGÁS Clipping
-          </h1>
-        </div>
-        <nav className="mt-6 flex-1 px-4 space-y-2">
-          <a href="#" className="flex items-center gap-3 px-4 py-3 bg-blue-600 rounded-lg text-white font-medium shadow-md">
-            <Newspaper size={20} /> Painel de Notícias
-          </a>
-          <a href="#" className="flex items-center gap-3 px-4 py-3 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition">
-            <BarChart2 size={20} /> Relatórios Analíticos
-          </a>
-          <a href="#" className="flex items-center gap-3 px-4 py-3 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition">
-            <Bell size={20} /> Alertas Configuráveis
-          </a>
-        </nav>
-      </aside>
+      {isLogado && <Sidebar setIsLogado={setIsLogado} setShowAlertModal={setShowAlertModal} darkMode={darkMode} setDarkMode={setDarkMode} setTelaAtiva={setTelaAtiva} telaAtiva={telaAtiva} />}
 
-      {/* Main Content */}
-      <main className="flex-1 md:ml-64 p-4 md:p-8">
+      <div className={`flex-1 flex flex-col transition-all duration-300 ${isLogado ? 'md:ml-64' : 'w-full'}`}>
         
-        <header className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4 bg-white p-5 rounded-2xl shadow-sm border border-slate-200 sticky top-4 z-20">
-          <div className="w-full md:w-auto">
-            <h2 className="text-2xl font-bold text-slate-800">
-              Monitoramento Integrado
-            </h2>
-            <p className="text-slate-500 text-sm">Visualizando {noticiasFiltradas.length} notícias classificadas</p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-            
-            {/* BOTÃO NOVA NOTÍCIA MANUAL */}
-            <button 
-              onClick={() => setShowModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white font-medium rounded-lg hover:bg-emerald-700 transition shadow-sm whitespace-nowrap"
-            >
-              <Plus size={18} />
-              <span>Nova Notícia</span>
-            </button>
-
-            <div className="relative">
-              <select
-                value={filtroSentimento}
-                onChange={(e) => setFiltroSentimento(e.target.value)}
-                className="appearance-none pl-10 pr-8 py-2 bg-slate-50 border border-slate-200 text-slate-700 rounded-lg focus:ring-2 focus:ring-blue-600 focus:outline-none font-medium text-sm cursor-pointer"
-              >
-                <option value="TODOS">Todos os Sentimentos</option>
-                <option value="NEG">🚨 Apenas Negativas</option>
-                <option value="POS">✅ Apenas Positivas</option>
-                <option value="NEU">⚪ Apenas Neutras</option>
-              </select>
-              <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-            </div>
-
-            <div className="relative group flex-1 md:w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-              <input 
-                type="text" 
-                placeholder="Buscar palavra-chave..." 
-                className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-600 focus:outline-none"
-                value={busca}
-                onChange={(e) => setBusca(e.target.value)}
-              />
-            </div>
-            
-            <button onClick={carregarNoticias} className="p-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition" title="Atualizar Dados">
-              <RefreshCw size={20} className={loading ? "animate-spin" : ""} />
-            </button>
-          </div>
-        </header>
-
-        {/* Notícias Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-          {noticiasFiltradas.length > 0 ? (
-            noticiasFiltradas.map(noticia => (
-              <article key={noticia.id} className={`bg-white rounded-2xl shadow-sm border-2 overflow-hidden flex flex-col hover:shadow-lg transition ${noticia.sentimento === 'NEG' ? 'border-red-200' : 'border-transparent'}`}>
-                <div className="p-6 flex-1">
-                  <div className="flex justify-between items-start mb-4">
-                    <span className="text-xs font-bold uppercase tracking-wider text-blue-800 bg-blue-50 px-3 py-1 rounded-full">
-                      {noticia.fonte_nome || "WEB"}
-                    </span>
-                    <span className={`text-[10px] font-bold px-3 py-1 rounded-full border ${getSentimentStyle(noticia.sentimento)}`}>
-                      {noticia.sentimento === 'NEG' ? '🚨 NEGATIVA' : noticia.sentimento === 'POS' ? 'POSITIVA' : 'NEUTRA'}
-                    </span>
+        {/* Navbar Pública */}
+        {!isLogado && (
+          <nav className="bg-[#0a2540] dark:bg-[#051424] border-b border-blue-900/50 sticky top-0 z-30 shadow-md">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="flex justify-between items-center h-16">
+                <div className="flex items-center gap-4">
+                  <img src="/logo-cigas.png" alt="CIGÁS" className="h-8 object-contain brightness-0 invert" onError={(e) => { e.target.style.display='none'; e.target.nextSibling.style.display='flex'; }} />
+                  <div style={{display: 'none'}} className="items-center gap-2">
+                    <span className="text-2xl font-black text-white tracking-tight">CIGÁS</span>
                   </div>
-                  <h3 className="text-lg font-bold text-slate-900 leading-tight mb-3">
-                    {noticia.titulo}
-                  </h3>
-                  <p className="text-slate-600 text-sm line-clamp-3">
-                    {noticia.conteudo || "Conteúdo disponível na fonte original."}
-                  </p>
+                  <span className="text-blue-800 hidden sm:block">|</span>
+                  <span className="text-blue-200 font-medium text-sm hidden sm:block">Portal de Transparência</span>
                 </div>
-                <div className="bg-slate-50 px-6 py-4 border-t border-slate-100 flex justify-between items-center">
-                  <span className="text-xs text-slate-500 font-medium">
-                    {new Date(noticia.data_publicacao).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute:'2-digit' })}
-                  </span>
-                  <a href={noticia.link_original || '#'} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 flex items-center gap-1 text-sm font-bold">
-                    Ver Fonte <ExternalLink size={14} />
-                  </a>
+                <div className="flex items-center gap-4">
+                  <button onClick={() => setDarkMode(!darkMode)} className="text-blue-300 hover:text-white transition-colors">
+                    {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+                  </button>
+                  <button onClick={() => setShowAuthModal(true)} className="flex items-center gap-2 px-5 py-2 text-white bg-blue-600 hover:bg-blue-500 font-semibold rounded-lg transition-colors border border-blue-500 shadow-sm">
+                    <LogIn size={16} /> <span className="hidden sm:inline">Login</span>
+                  </button>
                 </div>
-              </article>
-            ))
+              </div>
+            </div>
+          </nav>
+        )}
+
+        <main className={`p-4 md:p-8 flex-1 ${!isLogado ? 'mx-auto max-w-7xl w-full' : ''}`}>
+          
+          {isLogado && telaAtiva === 'relatorio' ? (
+            <Dashboard noticias={noticias} />
           ) : (
-            <div className="col-span-full flex flex-col items-center justify-center p-12 text-slate-400 bg-white rounded-2xl border border-slate-200 border-dashed">
-              <Search size={48} className="mb-4 text-slate-300" />
-              <p className="text-lg font-medium">Nenhuma notícia encontrada para este filtro.</p>
-            </div>
+            <>
+              {/* Toolbar */}
+              <header className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4 bg-white dark:bg-[#0d2640] p-3 md:p-4 rounded-2xl shadow-sm border border-slate-200 dark:border-[#1a3a5c] z-20 transition-colors duration-300">
+                <div className="flex flex-wrap items-center gap-3 w-full md:w-auto flex-1">
+                  <div className="relative group flex-1 max-w-md">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" size={18} />
+                    <input type="text" placeholder="Pesquisar matérias..." className="w-full pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-[#071a2f] border border-slate-200 dark:border-[#1a3a5c] text-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-emerald-500/50 outline-none transition-all text-sm" value={busca} onChange={(e) => setBusca(e.target.value)} />
+                  </div>
+                  
+                  <div className="relative">
+                    <select value={filtroSentimento} onChange={(e) => setFiltroSentimento(e.target.value)} className="appearance-none pl-10 pr-8 py-2.5 bg-slate-50 dark:bg-[#071a2f] border border-slate-200 dark:border-[#1a3a5c] text-slate-700 dark:text-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500/50 outline-none font-medium text-sm cursor-pointer transition-all">
+                      <option value="TODOS">Todos os Sentimentos</option>
+                      <option value="NEG">🚨 Negativas</option>
+                      <option value="POS">✅ Positivas</option>
+                      <option value="NEU">⚪ Neutras</option>
+                    </select>
+                    <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500" size={16} />
+                  </div>
+
+                  <button onClick={carregarNoticias} className="p-2.5 bg-slate-50 dark:bg-[#071a2f] border border-slate-200 dark:border-[#1a3a5c] text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-100 dark:hover:bg-[#1a3a5c] transition-colors" title="Atualizar Dados">
+                    <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
+                  </button>
+                </div>
+
+                {isLogado && (
+                  <div className="flex items-center gap-3 w-full md:w-auto pt-4 md:pt-0 border-t md:border-t-0 border-slate-100 dark:border-[#1a3a5c]">
+                    <button className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-2.5 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-500 transition-colors shadow-sm">
+                      <Plus size={18} /><span>Nova Notícia</span>
+                    </button>
+                  </div>
+                )}
+              </header>
+
+              {/* Grid de Notícias usando a variável 'noticiasExibidas' */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {noticiasExibidas.length > 0 ? (
+                  noticiasExibidas.map(noticia => <NewsCard key={noticia.id} noticia={noticia} />)
+                ) : (
+                  <div className="col-span-full flex flex-col items-center justify-center py-20 text-slate-400 dark:text-slate-500">
+                    <p className="text-lg font-medium text-slate-600 dark:text-slate-400">Nenhum resultado encontrado.</p>
+                  </div>
+                )}
+              </div>
+
+              {/* CONTROLES DE PAGINAÇÃO */}
+              {totalPaginas > 1 && (
+                <div className="col-span-full flex justify-center items-center gap-6 mt-10">
+                  <button 
+                    onClick={() => setPaginaAtual(p => Math.max(1, p - 1))}
+                    disabled={paginaAtual === 1}
+                    className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#0d2640] border border-slate-200 dark:border-[#1a3a5c] text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-50 dark:hover:bg-[#1a3a5c] transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm font-medium"
+                  >
+                    <ChevronLeft size={18} /> Anterior
+                  </button>
+                  
+                  <span className="text-sm font-bold text-slate-600 dark:text-slate-400">
+                    Página {paginaAtual} de {totalPaginas}
+                  </span>
+                  
+                  <button 
+                    onClick={() => setPaginaAtual(p => Math.min(totalPaginas, p + 1))}
+                    disabled={paginaAtual === totalPaginas}
+                    className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-[#0d2640] border border-slate-200 dark:border-[#1a3a5c] text-slate-600 dark:text-slate-300 rounded-xl hover:bg-slate-50 dark:hover:bg-[#1a3a5c] transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm font-medium"
+                  >
+                    Próxima <ChevronRight size={18} />
+                  </button>
+                </div>
+              )}
+
+            </>
           )}
-        </div>
-      </main>
+        </main>
+      </div>
 
-      {/* MODAL DE CADASTRO MANUAL */}
-      {showModal && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center p-5 border-b border-slate-100">
-              <h3 className="text-xl font-bold text-slate-800">Inserir Notícia Manual</h3>
-              <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-600 transition">
-                <X size={24} />
-              </button>
-            </div>
-            
-            <form onSubmit={handleSalvarManual} className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Título da Matéria *</label>
-                <input required type="text" className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 outline-none"
-                  value={formManual.titulo} onChange={e => setFormManual({...formManual, titulo: e.target.value})} />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Resumo / Conteúdo</label>
-                <textarea rows="3" className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 outline-none"
-                  value={formManual.conteudo} onChange={e => setFormManual({...formManual, conteudo: e.target.value})}></textarea>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Veículo / Fonte *</label>
-                  <input required type="text" placeholder="Ex: TV Amazonas" className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 outline-none"
-                    value={formManual.fonte_nome} onChange={e => setFormManual({...formManual, fonte_nome: e.target.value})} />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Sentimento</label>
-                  <select className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 outline-none"
-                    value={formManual.sentimento} onChange={e => setFormManual({...formManual, sentimento: e.target.value})}>
-                    <option value="NEU">⚪ Neutro</option>
-                    <option value="POS">✅ Positivo</option>
-                    <option value="NEG">🚨 Negativo</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Link Original (Opcional)</label>
-                <input type="url" placeholder="https://" className="w-full p-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 outline-none"
-                  value={formManual.link_original} onChange={e => setFormManual({...formManual, link_original: e.target.value})} />
-              </div>
-
-              <div className="pt-4 flex justify-end gap-3">
-                <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition">Cancelar</button>
-                <button type="submit" className="px-6 py-2 bg-blue-600 text-white font-bold rounded-lg hover:bg-blue-700 transition shadow-md">Salvar no Banco</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
+      {showAuthModal && <AuthModal setShowAuthModal={setShowAuthModal} setIsLogado={setIsLogado} />}
     </div>
   )
 }

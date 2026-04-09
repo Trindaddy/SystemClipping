@@ -18,3 +18,11 @@ class Noticia(models.Model):
 
     def __str__(self):
         return self.titulo
+    
+# A classe Assinante precisa ficar alinhada na borda, fora da Noticia
+class Assinante(models.Model):
+    email = models.EmailField(unique=True)
+    data_inscricao = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.email
