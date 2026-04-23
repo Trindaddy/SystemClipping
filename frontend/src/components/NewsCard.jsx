@@ -1,6 +1,6 @@
-import { ExternalLink, Calendar, Activity } from 'lucide-react';
+import { ExternalLink, Calendar, Activity, Edit2, Trash2 } from 'lucide-react';
 
-export default function NewsCard({ noticia }) {
+export default function NewsCard({ noticia, onDelete, onEdit, isLogado }) {
   // Traduz o sentimento em cores e textos
   const sentimentoConfig = {
     'POS': { cor: 'bg-emerald-500', texto: 'Positiva', glow: 'shadow-emerald-500/20' },
@@ -73,7 +73,31 @@ export default function NewsCard({ noticia }) {
           <Calendar size={14} />
           {dataFormatada}
         </div>
-        <ExternalLink size={14} className="group-hover:text-blue-600 transition-colors" />
+        
+        <div className="flex items-center gap-3">
+          {/* BOTÕES DE CRUD APARECEM APENAS PARA O ADMIN */}
+          {isLogado && (
+            // A MÁGICA ESTÁ AQUI: relative z-20 traz os botões para cima do link invisível
+            <div className="flex items-center gap-2 mr-2 relative z-20">
+              <button 
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); onEdit(); }} 
+                className="p-1.5 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-md transition-colors" 
+                title="Editar Notícia">
+                <Edit2 size={16} />
+              </button>
+              <button 
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); onDelete(); }} 
+                className="p-1.5 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-md transition-colors" 
+                title="Excluir Notícia">
+                <Trash2 size={16} />
+              </button>
+            </div>
+          )}
+          
+          <a href={noticia.link_original} target="_blank" rel="noopener noreferrer" className="hover:text-blue-600 transition-colors z-20 relative">
+            <ExternalLink size={16} />
+          </a>
+        </div>
       </div>
     </div>
   );

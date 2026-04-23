@@ -53,6 +53,25 @@ def criar_noticia(request, payload: NoticiaSchemaIn):
     nova_noticia = Noticia.objects.create(**dados_para_salvar)
     return {"id": nova_noticia.id, "status": "criado com sucesso"}
 
+# Rota: PUT (Atualizar Notícia)
+@api.put("/noticias/{noticia_id}")
+def atualizar_noticia(request, noticia_id: int, payload: NoticiaSchemaIn):
+    noticia = get_object_or_404(Noticia, id=noticia_id)
+    
+    # Atualiza todos os campos enviados
+    for attr, value in payload.dict().items():
+        setattr(noticia, attr, value)
+    
+    noticia.save()
+    return {"status": "sucesso", "mensagem": "Notícia atualizada com sucesso."}
+
+# Rota: DELETE (Excluir Notícia)
+@api.delete("/noticias/{noticia_id}")
+def deletar_noticia(request, noticia_id: int):
+    noticia = get_object_or_404(Noticia, id=noticia_id)
+    noticia.delete()
+    return {"status": "sucesso", "mensagem": "Notícia excluída."}
+
 
 # ==========================================
 # SCHEMAS E ROTAS DE ASSINANTES (O NOVO CÓDIGO)

@@ -24,6 +24,7 @@ SECRET_KEY = 'django-insecure-302f)$*yno(wx8b_6uprcg2cgj&8%b(nz4=b^c12cz+t+=k&4m
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
+# Após deploy virar False <====================
 
 # Permite que 'localhost', 'api', '127.0.0.1' ou qualquer um conecte
 ALLOWED_HOSTS = ["*"]
@@ -126,7 +127,14 @@ USE_TZ = True
 STATIC_URL = 'static/'
 
 # Permite que o React (porta 5173) converse com o Django
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
+# CORS_ALLOWED_ORIGINS = [
+#     # "http://localhost:5173",
+#     # "http://127.0.0.1:5173",
+#     True,
+# ]
+# Após deploy deixar somente "True"
+
+# JEITO CERTO:
+CORS_ALLOW_ALL_ORIGINS = True
+# Deixar True
+

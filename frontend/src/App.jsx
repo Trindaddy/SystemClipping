@@ -7,6 +7,7 @@ import NewsCard from './components/NewsCard'
 import Dashboard from './components/Dashboard'
 import AddNewsModal from './components/AddNewsModal'
 import SubscribeModal from './components/SubscribeModal'
+import EditNewsModal from './components/EditNewsModal'
 
 function App() {
   const [noticias, setNoticias] = useState([])
@@ -18,6 +19,8 @@ function App() {
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [showSubscribeModal, setShowSubscribeModal] = useState(false)
   const [showAddNewsModal, setShowAddNewsModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [noticiaEditando, setNoticiaEditando] = useState(null)
   
   const [darkMode, setDarkMode] = useState(false)
   const [telaAtiva, setTelaAtiva] = useState('midia')
@@ -35,14 +38,12 @@ function App() {
 
   const carregarNoticias = () => {
     setLoading(true)
-    fetch('http://localhost:8000/api/noticias', { cache: 'no-store' })
+    fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/noticias`, { cache: 'no-store' })
       .then(response => {
-        // 1. Se o servidor responder 404 ou 500, a gente para por aqui e avisa o erro
         if (!response.ok) throw new Error(`Erro no Servidor: ${response.status}`);
         return response.json();
       })
       .then(data => {
-        // 2. Se os dados não forem uma lista (Array), a gente também para
         if (!Array.isArray(data)) throw new Error("A API não retornou uma lista válida.");
         
         const unicas = Array.from(new Map(data.map(item => [item.link_original, item])).values());
@@ -52,9 +53,35 @@ function App() {
       })
       .catch(error => { 
         console.error("Falha ao carregar notícias:", error); 
-        setNoticias([]); // Deixa a lista vazia para a tela não explodir
+        setNoticias([]); 
         setLoading(false);
       })
+  }
+
+  // ==========================================
+  // FUNÇÃO DE DELETAR BLINDADA
+  // ==========================================
+  const deletarNoticia = (id) => {
+    if(window.confirm("Tem certeza que deseja excluir permanentemente esta notícia?")) {
+      fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/noticias/${id}`, { 
+        method: 'DELETE' 
+      })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(`Erro do servidor: ${response.status}`);
+        }
+        carregarNoticias(); // Atualiza a tela imediatamente
+      })
+      .catch(err => {
+        console.error("Erro ao deletar:", err);
+        alert("Não foi possível excluir a notícia. Verifique se o backend está rodando e se a rota existe.");
+      });
+    }
+  }
+
+  const abrirEdicao = (noticia) => {
+    setNoticiaEditando(noticia);
+    setShowEditModal(true);
   }
 
   useEffect(() => { carregarNoticias() }, [])
@@ -63,9 +90,6 @@ function App() {
     setPaginaAtual(1)
   }, [busca, filtroSentimento])
 
-  // ==========================================
-  // LÓGICA DE FILTRO E PAGINAÇÃO
-  // ==========================================
   const noticiasFiltradas = noticias.filter(noticia => {
     const matchBusca = noticia.titulo.toLowerCase().includes(busca.toLowerCase()) || (noticia.conteudo && noticia.conteudo.toLowerCase().includes(busca.toLowerCase()));
     const matchSentimento = filtroSentimento === 'TODOS' || noticia.sentimento === filtroSentimento;
@@ -107,7 +131,7 @@ function App() {
                   </button>
 
                   <button onClick={() => setShowAuthModal(true)} className="flex items-center gap-2 px-5 py-2 text-white bg-blue-600 hover:bg-blue-500 font-semibold rounded-lg transition-colors border border-blue-500 shadow-sm">
-                    <LogIn size={16} /> <span className="hidden sm:inline">Login Admin</span>
+                    <LogIn size={16} /> <span className="hidden sm:inline">Login</span>
                   </button>
                 </div>
               </div>
@@ -158,7 +182,7 @@ function App() {
               {/* Grid de Notícias */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {noticiasExibidas.length > 0 ? (
-                  noticiasExibidas.map(noticia => <NewsCard key={noticia.id} noticia={noticia} />)
+                  noticiasExibidas.map(noticia => <NewsCard key={noticia.id} noticia={noticia} onDelete={() => deletarNoticia(noticia.id)} onEdit={() => abrirEdicao(noticia)} isLogado={isLogado}/>)
                 ) : (
                   <div className="col-span-full flex flex-col items-center justify-center py-20 text-slate-400 dark:text-slate-500">
                     <p className="text-lg font-medium text-slate-600 dark:text-slate-400">Nenhum resultado encontrado.</p>
@@ -198,6 +222,7 @@ function App() {
       {showAuthModal && <AuthModal setShowAuthModal={setShowAuthModal} setIsLogado={setIsLogado} />}
       {showSubscribeModal && <SubscribeModal setShowSubscribeModal={setShowSubscribeModal} />}
       {showAddNewsModal && <AddNewsModal setShowAddNewsModal={setShowAddNewsModal} carregarNoticias={carregarNoticias} />}
+      {showEditModal && <EditNewsModal setShowEditModal={setShowEditModal} carregarNoticias={carregarNoticias} noticiaAtual={noticiaEditando} />}
       
     </div>
   )

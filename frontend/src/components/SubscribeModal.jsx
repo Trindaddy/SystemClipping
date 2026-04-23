@@ -9,7 +9,7 @@ export default function SubscribeModal({ setShowSubscribeModal }) {
     e.preventDefault();
     
     // Envia o e-mail para o seu banco Django
-    fetch('http://localhost:8000/api/assinantes/', {
+    fetch(`${import.meta.env.VITE_API_URL}/api/assinantes/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email })
