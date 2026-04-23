@@ -1,10 +1,14 @@
 import { useState } from 'react';
-import { X, Mail, Lock, User, EyeOff, Eye, ShieldCheck, CheckCircle2, AlertCircle } from 'lucide-react';
+import { X, Mail, Lock, User, EyeOff, Eye, ShieldCheck, AlertCircle } from 'lucide-react';
 
 export default function AuthModal({ setShowAuthModal, setIsLogado }) {
   const [isRegistering, setIsRegistering] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [formAuth, setFormAuth] = useState({ nome: '', email: '', senha: '', confirmaSenha: '' });
+  
+  // Novos estados para controle de login real
+  const [erro, setErro] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const checkPasswordStrength = (pass) => ({
     length: pass.length >= 8,
@@ -12,13 +16,39 @@ export default function AuthModal({ setShowAuthModal, setIsLogado }) {
     number: /[0-9]/.test(pass)
   });
 
-  const strength = checkPasswordStrength(formAuth.senha);
   const senhasBatem = formAuth.senha === formAuth.confirmaSenha && formAuth.senha.length > 0;
 
   const handleAuthSubmit = (e) => {
     e.preventDefault();
-    if (isRegistering && !senhasBatem) return;
-    setTimeout(() => { setIsLogado(true); setShowAuthModal(false); }, 800);
+    setErro('');
+    
+    // Trava de segurança para as senhas na hora de criar conta
+    if (isRegistering && !senhasBatem) {
+      setErro('As senhas não coincidem.');
+      return;
+    }
+
+    setLoading(true);
+
+    // Simulando tempo de servidor
+    setTimeout(() => {
+      
+      if (isRegistering) {
+        // LÓGICA DE CRIAR CONTA: Simula o cadastro e libera o acesso ao painel
+        setIsLogado(true);
+        setShowAuthModal(false);
+      } else {
+        // LÓGICA DE LOGIN: Exige as credenciais oficiais do admin
+        if (formAuth.email === 'admin@cigas.com.br' && formAuth.senha === 'admin123') {
+          setIsLogado(true);
+          setShowAuthModal(false);
+        } else {
+          setErro('Credenciais inválidas. Verifique seu e-mail corporativo e senha.');
+          setLoading(false);
+        }
+      }
+
+    }, 800);
   };
 
   return (
@@ -43,11 +73,19 @@ export default function AuthModal({ setShowAuthModal, setIsLogado }) {
           </button>
 
           <div className="flex gap-8 border-b border-slate-100 mb-8">
-            <button onClick={() => setIsRegistering(false)} className={`pb-3 text-sm font-bold transition-colors border-b-2 ${!isRegistering ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-400 hover:text-slate-700'}`}>Login</button>
-            <button onClick={() => setIsRegistering(true)} className={`pb-3 text-sm font-bold transition-colors border-b-2 ${isRegistering ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-400 hover:text-slate-700'}`}>Criar Conta</button>
+            <button onClick={() => {setIsRegistering(false); setErro('');}} className={`pb-3 text-sm font-bold transition-colors border-b-2 ${!isRegistering ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-400 hover:text-slate-700'}`}>Login</button>
+            <button onClick={() => {setIsRegistering(true); setErro('');}} className={`pb-3 text-sm font-bold transition-colors border-b-2 ${isRegistering ? 'border-blue-600 text-blue-700' : 'border-transparent text-slate-400 hover:text-slate-700'}`}>Criar Conta</button>
           </div>
 
           <form onSubmit={handleAuthSubmit} className="space-y-5">
+            
+            {/* Exibição de Erro */}
+            {erro && (
+              <div className="flex items-center gap-2 p-3 bg-red-50 text-red-600 rounded-lg text-sm border border-red-200 animate-in fade-in">
+                <AlertCircle size={16} /> {erro}
+              </div>
+            )}
+
             {isRegistering && (
               <div>
                 <label className="block text-xs font-semibold text-slate-600 mb-1.5">Nome Completo</label>
@@ -69,7 +107,7 @@ export default function AuthModal({ setShowAuthModal, setIsLogado }) {
             <div>
               <div className="flex justify-between items-center mb-1.5">
                 <label className="block text-xs font-semibold text-slate-600">Senha</label>
-                {!isRegistering && <a href="#" className="text-xs font-medium text-blue-600 hover:text-blue-800">Esqueceu?</a>}
+                {!isRegistering && <span className="text-xs font-medium text-slate-400 cursor-not-allowed">Esqueceu?</span>}
               </div>
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
@@ -90,8 +128,8 @@ export default function AuthModal({ setShowAuthModal, setIsLogado }) {
               </div>
             )}
 
-            <button type="submit" className="w-full py-3.5 mt-2 bg-[#0a2540] text-white font-semibold rounded-xl hover:bg-blue-800 transition-colors shadow-sm">
-              {isRegistering ? 'Criar Conta' : 'Acessar Painel'}
+            <button type="submit" disabled={loading} className="w-full py-3.5 mt-2 bg-[#0a2540] text-white font-semibold rounded-xl hover:bg-blue-800 disabled:bg-slate-400 transition-colors shadow-sm">
+              {loading ? 'Verificando...' : (isRegistering ? 'Criar Conta' : 'Acessar Painel')}
             </button>
           </form>
         </div>

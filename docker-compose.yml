@@ -10,17 +10,20 @@ services:
       - POSTGRES_PASSWORD=postgres
     ports:
       - "5432:5432"
+    networks:
+      - clipping_net
 
   # --- Fila de Mensagens ---
   redis:
     image: redis:alpine
     ports:
-      - "6379:6379"
+      - "6380:6379"
+    networks:
+      - clipping_net
 
   # --- Automação (N8n) ---
   n8n:
-    # Fixando uma versão estável para evitar erros de download da 'latest'
-    image: n8nio/n8n:1.25.1
+    image: n8nio/n8n:2.15.0
     ports:
       - "5678:5678"
     environment:
@@ -31,10 +34,13 @@ services:
       - ./n8n_data:/home/node/.n8n
     depends_on:
       - db
+    networks:
+      - clipping_net
 
   # --- API Django ---
   api:
     build: ./backend
+    container_name: api_backend  # <--- CRACHÁ FIXO PARA O N8N ACHAR
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - ./backend:/app
@@ -45,6 +51,8 @@ services:
     depends_on:
       - db
       - redis
+    networks:
+      - clipping_net
 
   # --- Frontend React ---
   web:
@@ -55,6 +63,14 @@ services:
       - /app/node_modules
     ports:
       - "5173:5173"
+    networks:
+      - clipping_net
 
+# --- Configuração de Volumes e Redes ---
 volumes:
   postgres_data:
+  n8n_data:
+
+networks:
+  clipping_net:  # <--- NOSSA REDE PRIVADA BLINDADA
+    driver: bridge

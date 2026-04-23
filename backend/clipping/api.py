@@ -38,7 +38,19 @@ def listar_noticias(request):
 # Rota: POST (Criar Notícia)
 @api.post("/noticias")
 def criar_noticia(request, payload: NoticiaSchemaIn):
-    nova_noticia = Noticia.objects.create(**payload.dict())
+    
+    # 🛡️ TRAVA DE ARQUITETURA: Verifica se o link já existe no banco
+    if Noticia.objects.filter(link_original=payload.link_original).exists():
+        # Retornamos sucesso (200) para o n8n não dar erro de "crash", mas avisamos que foi ignorado
+        return {"status": "ignorado", "mensagem": "Notícia já cadastrada."}
+    
+    # Se a data vier vazia do React ou do n8n, preenchemos com a data e hora atual do servidor
+    dados_para_salvar = payload.dict()
+    if not dados_para_salvar.get('data_publicacao'):
+        dados_para_salvar['data_publicacao'] = datetime.now()
+
+    # Se passou pela trava, salva no banco definitivamente
+    nova_noticia = Noticia.objects.create(**dados_para_salvar)
     return {"id": nova_noticia.id, "status": "criado com sucesso"}
 
 

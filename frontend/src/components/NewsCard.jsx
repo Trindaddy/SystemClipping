@@ -1,41 +1,80 @@
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, Calendar, Activity } from 'lucide-react';
 
 export default function NewsCard({ noticia }) {
-  const getSentimentStyle = (sentimento) => {
-    if (sentimento === 'POS') return 'bg-emerald-100/80 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50';
-    if (sentimento === 'NEG') return 'bg-red-100/80 text-red-800 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800/50';
-    return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-700';
-  }
+  // Traduz o sentimento em cores e textos
+  const sentimentoConfig = {
+    'POS': { cor: 'bg-emerald-500', texto: 'Positiva', glow: 'shadow-emerald-500/20' },
+    'NEG': { cor: 'bg-red-500', texto: 'Crítica', glow: 'shadow-red-500/20' },
+    'NEU': { cor: 'bg-slate-400', texto: 'Neutra', glow: 'shadow-slate-400/20' }
+  };
+
+  const config = sentimentoConfig[noticia.sentimento] || sentimentoConfig['NEU'];
+
+  // Formata a data para padrão brasileiro
+  const dataFormatada = new Date(noticia.data_publicacao).toLocaleDateString('pt-BR', {
+    day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+  });
+
+  // Mágica do Item 1: Limpa o nome da fonte se for genérico
+  const obterNomeFonte = () => {
+    if (noticia.fonte_nome === 'Monitoramento Web' || noticia.fonte_nome === 'Inserção Manual') {
+      try {
+        const url = new URL(noticia.link_original);
+        return url.hostname.replace('www.', '').replace('news.google.com', 'Google News');
+      } catch (e) {
+        return 'Web';
+      }
+    }
+    return noticia.fonte_nome;
+  };
+
+  // Mágica do Item 8: Limpa resumos inúteis
+  const obterResumo = () => {
+    const texto = noticia.conteudo || noticia.resumo || "";
+    if (texto.includes("Conteúdo disponível na fonte original") || texto.length < 10) {
+      return "Clique no título da matéria para ler a reportagem na íntegra no portal de origem.";
+    }
+    return texto;
+  };
 
   return (
-    <article className="bg-white dark:bg-[#0d2640] rounded-2xl shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 border border-slate-200 dark:border-[#1a3a5c] flex flex-col group">
-      <div className="p-6 flex-1">
-        <div className="flex justify-between items-center mb-5">
-          <span className="text-[11px] font-bold uppercase tracking-widest text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-3 py-1.5 rounded-lg">
-            {noticia.fonte_nome || "WEB"}
-          </span>
-          <span className={`text-[10px] font-bold px-3 py-1.5 rounded-lg border ${getSentimentStyle(noticia.sentimento)}`}>
-            {noticia.sentimento === 'NEG' ? '🚨 NEGATIVA' : noticia.sentimento === 'POS' ? '✅ POSITIVA' : '⚪ NEUTRA'}
-          </span>
+    <div className={`bg-white dark:bg-[#0a2540] rounded-2xl p-6 border border-slate-100 dark:border-[#1a3a5c] shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col h-full relative overflow-hidden group`}>
+      
+      {/* Barra de cor lateral */}
+      <div className={`absolute left-0 top-0 bottom-0 w-1 ${config.cor}`}></div>
+
+      {/* Cabeçalho do Card */}
+      <div className="flex justify-between items-start mb-4 pl-2">
+        <div className="flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+          <Activity size={14} className={config.cor.replace('bg-', 'text-')} />
+          {obterNomeFonte()}
         </div>
         
-        <h3 className="text-lg font-bold text-slate-800 dark:text-white leading-snug mb-3 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-          {noticia.titulo}
+        <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold text-white ${config.cor} shadow-sm`}>
+          {config.texto}
+        </span>
+      </div>
+
+      {/* Título e Resumo */}
+      <div className="pl-2 flex-1">
+        <h3 className="text-lg font-bold text-slate-800 dark:text-white leading-tight mb-3 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+          <a href={noticia.link_original} target="_blank" rel="noopener noreferrer" className="before:absolute before:inset-0">
+            {noticia.titulo}
+          </a>
         </h3>
-        
-        <p className="text-slate-500 dark:text-slate-400 text-sm line-clamp-3 leading-relaxed">
-          {noticia.conteudo || "Conteúdo disponível na fonte original."}
+        <p className="text-slate-600 dark:text-slate-300 text-sm line-clamp-3 leading-relaxed">
+          {obterResumo()}
         </p>
       </div>
-      
-      <div className="px-6 py-4 border-t border-slate-100 dark:border-[#1a3a5c] flex justify-between items-center bg-slate-50/50 dark:bg-[#0a1f35]/50">
-        <span className="text-xs text-slate-400 dark:text-slate-500 font-medium">
-          {new Date(noticia.data_publicacao).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute:'2-digit' })}
-        </span>
-        <a href={noticia.link_original || '#'} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 flex items-center gap-1.5 text-sm font-semibold transition-colors">
-          Ler Matéria <ExternalLink size={14} />
-        </a>
+
+      {/* Rodapé do Card */}
+      <div className="mt-6 pl-2 pt-4 border-t border-slate-100 dark:border-[#1a3a5c] flex justify-between items-center text-xs text-slate-400 dark:text-slate-500">
+        <div className="flex items-center gap-1.5">
+          <Calendar size={14} />
+          {dataFormatada}
+        </div>
+        <ExternalLink size={14} className="group-hover:text-blue-600 transition-colors" />
       </div>
-    </article>
+    </div>
   );
 }

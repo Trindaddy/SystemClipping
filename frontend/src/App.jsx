@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Search, RefreshCw, Filter, Plus, LogIn, Moon, Sun, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Search, RefreshCw, Filter, Plus, LogIn, Moon, Sun, ChevronLeft, ChevronRight, BellRing } from 'lucide-react'
 
 import AuthModal from './components/AuthModal'
 import Sidebar from './components/Sidebar'
 import NewsCard from './components/NewsCard'
 import Dashboard from './components/Dashboard'
+import AddNewsModal from './components/AddNewsModal'
+import SubscribeModal from './components/SubscribeModal'
 
 function App() {
   const [noticias, setNoticias] = useState([])
@@ -14,7 +16,9 @@ function App() {
   
   const [isLogado, setIsLogado] = useState(false)
   const [showAuthModal, setShowAuthModal] = useState(false)
-  const [showAlertModal, setShowAlertModal] = useState(false)
+  const [showSubscribeModal, setShowSubscribeModal] = useState(false)
+  const [showAddNewsModal, setShowAddNewsModal] = useState(false)
+  
   const [darkMode, setDarkMode] = useState(false)
   const [telaAtiva, setTelaAtiva] = useState('midia')
 
@@ -22,7 +26,7 @@ function App() {
   // ESTADOS DE PAGINAÇÃO
   // ==========================================
   const [paginaAtual, setPaginaAtual] = useState(1)
-  const itensPorPagina = 12 // Mostra 12 cards por vez (4 linhas de 3)
+  const itensPorPagina = 12 
 
   useEffect(() => {
     if (darkMode) document.documentElement.classList.add('dark');
@@ -31,19 +35,30 @@ function App() {
 
   const carregarNoticias = () => {
     setLoading(true)
-    fetch('http://localhost:8000/api/noticias')
-      .then(response => response.json())
+    fetch('http://localhost:8000/api/noticias', { cache: 'no-store' })
+      .then(response => {
+        // 1. Se o servidor responder 404 ou 500, a gente para por aqui e avisa o erro
+        if (!response.ok) throw new Error(`Erro no Servidor: ${response.status}`);
+        return response.json();
+      })
       .then(data => {
-        const ordenadas = data.sort((a, b) => new Date(b.data_publicacao) - new Date(a.data_publicacao))
-        setNoticias(ordenadas) // Carrega tudo na memória (JSON é leve)
+        // 2. Se os dados não forem uma lista (Array), a gente também para
+        if (!Array.isArray(data)) throw new Error("A API não retornou uma lista válida.");
+        
+        const unicas = Array.from(new Map(data.map(item => [item.link_original, item])).values());
+        const ordenadas = unicas.sort((a, b) => new Date(b.data_publicacao) - new Date(a.data_publicacao))
+        setNoticias(ordenadas)
         setLoading(false)
       })
-      .catch(error => { console.error("Erro:", error); setLoading(false) })
+      .catch(error => { 
+        console.error("Falha ao carregar notícias:", error); 
+        setNoticias([]); // Deixa a lista vazia para a tela não explodir
+        setLoading(false);
+      })
   }
 
   useEffect(() => { carregarNoticias() }, [])
 
-  // Sempre que buscar ou filtrar, volta para a página 1
   useEffect(() => {
     setPaginaAtual(1)
   }, [busca, filtroSentimento])
@@ -57,7 +72,6 @@ function App() {
     return matchBusca && matchSentimento;
   })
 
-  // Matemática da Paginação
   const totalPaginas = Math.ceil(noticiasFiltradas.length / itensPorPagina)
   const indexUltimoItem = paginaAtual * itensPorPagina
   const indexPrimeiroItem = indexUltimoItem - itensPorPagina
@@ -66,7 +80,7 @@ function App() {
   return (
     <div className="flex min-h-screen bg-[#F0F4F8] dark:bg-[#071a2f] font-sans relative transition-colors duration-300">
       
-      {isLogado && <Sidebar setIsLogado={setIsLogado} setShowAlertModal={setShowAlertModal} darkMode={darkMode} setDarkMode={setDarkMode} setTelaAtiva={setTelaAtiva} telaAtiva={telaAtiva} />}
+      {isLogado && <Sidebar setIsLogado={setIsLogado} darkMode={darkMode} setDarkMode={setDarkMode} setTelaAtiva={setTelaAtiva} telaAtiva={telaAtiva} />}
 
       <div className={`flex-1 flex flex-col transition-all duration-300 ${isLogado ? 'md:ml-64' : 'w-full'}`}>
         
@@ -83,12 +97,17 @@ function App() {
                   <span className="text-blue-800 hidden sm:block">|</span>
                   <span className="text-blue-200 font-medium text-sm hidden sm:block">Portal de Transparência</span>
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3">
                   <button onClick={() => setDarkMode(!darkMode)} className="text-blue-300 hover:text-white transition-colors">
                     {darkMode ? <Sun size={20} /> : <Moon size={20} />}
                   </button>
+                  
+                  <button onClick={() => setShowSubscribeModal(true)} className="hidden sm:flex items-center gap-2 px-4 py-2 text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 font-semibold rounded-lg transition-colors hover:bg-blue-100 dark:hover:bg-blue-900/40">
+                    <BellRing size={16} /> Assinar Alertas
+                  </button>
+
                   <button onClick={() => setShowAuthModal(true)} className="flex items-center gap-2 px-5 py-2 text-white bg-blue-600 hover:bg-blue-500 font-semibold rounded-lg transition-colors border border-blue-500 shadow-sm">
-                    <LogIn size={16} /> <span className="hidden sm:inline">Login</span>
+                    <LogIn size={16} /> <span className="hidden sm:inline">Login Admin</span>
                   </button>
                 </div>
               </div>
@@ -98,9 +117,11 @@ function App() {
 
         <main className={`p-4 md:p-8 flex-1 ${!isLogado ? 'mx-auto max-w-7xl w-full' : ''}`}>
           
-          {isLogado && telaAtiva === 'relatorio' ? (
-            <Dashboard noticias={noticias} />
-          ) : (
+          {/* LÓGICA DE ROTEAMENTO DAS TELAS DO ADMIN ENXUTA */}
+          {isLogado && telaAtiva === 'relatorio' && <Dashboard noticias={noticias} />}
+          
+          {/* TELA PADRÃO (MÍDIA) */}
+          {(!isLogado || telaAtiva === 'midia') && (
             <>
               {/* Toolbar */}
               <header className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4 bg-white dark:bg-[#0d2640] p-3 md:p-4 rounded-2xl shadow-sm border border-slate-200 dark:border-[#1a3a5c] z-20 transition-colors duration-300">
@@ -127,14 +148,14 @@ function App() {
 
                 {isLogado && (
                   <div className="flex items-center gap-3 w-full md:w-auto pt-4 md:pt-0 border-t md:border-t-0 border-slate-100 dark:border-[#1a3a5c]">
-                    <button className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-2.5 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-500 transition-colors shadow-sm">
+                    <button onClick={() => setShowAddNewsModal(true)} className="flex-1 md:flex-none flex items-center justify-center gap-2 px-5 py-2.5 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-500 transition-colors shadow-sm">
                       <Plus size={18} /><span>Nova Notícia</span>
                     </button>
                   </div>
                 )}
               </header>
 
-              {/* Grid de Notícias usando a variável 'noticiasExibidas' */}
+              {/* Grid de Notícias */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {noticiasExibidas.length > 0 ? (
                   noticiasExibidas.map(noticia => <NewsCard key={noticia.id} noticia={noticia} />)
@@ -169,13 +190,15 @@ function App() {
                   </button>
                 </div>
               )}
-
             </>
           )}
         </main>
       </div>
 
       {showAuthModal && <AuthModal setShowAuthModal={setShowAuthModal} setIsLogado={setIsLogado} />}
+      {showSubscribeModal && <SubscribeModal setShowSubscribeModal={setShowSubscribeModal} />}
+      {showAddNewsModal && <AddNewsModal setShowAddNewsModal={setShowAddNewsModal} carregarNoticias={carregarNoticias} />}
+      
     </div>
   )
 }

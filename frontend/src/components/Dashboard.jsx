@@ -1,123 +1,98 @@
-import { useState } from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
-import { FileDown, Activity, AlertTriangle, CheckCircle, MinusCircle } from 'lucide-react';
-import html2canvas from 'html2canvas';
-import jsPDF from 'jspdf';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { Download, AlertTriangle, CheckCircle, Info } from 'lucide-react';
 
 export default function Dashboard({ noticias }) {
-  const [gerandoPDF, setGerandoPDF] = useState(false);
+  // 1. Cálculos de Estatísticas Rápidas
+  const total = noticias.length;
+  const positivas = noticias.filter(n => n.sentimento === 'POS').length;
+  const negativas = noticias.filter(n => n.sentimento === 'NEG').length;
+  const neutras = noticias.filter(n => n.sentimento === 'NEU').length;
 
-  // Lógica de contagem para o Gráfico
-  const totais = {
-    POS: noticias.filter(n => n.sentimento === 'POS').length,
-    NEG: noticias.filter(n => n.sentimento === 'NEG').length,
-    NEU: noticias.filter(n => n.sentimento === 'NEU').length,
-    TOTAL: noticias.length
-  };
-
-  const data = [
-    { name: 'Positivas', value: totais.POS, color: '#10b981' }, // emerald-500
-    { name: 'Negativas', value: totais.NEG, color: '#ef4444' }, // red-500
-    { name: 'Neutras', value: totais.NEU, color: '#94a3b8' },   // slate-400
+  // 2. Preparar dados para o Gráfico de Pizza
+  const dadosSentimento = [
+    { name: 'Positivas', value: positivas, color: '#10b981' },
+    { name: 'Negativas (Crises)', value: negativas, color: '#ef4444' },
+    { name: 'Neutras', value: neutras, color: '#94a3b8' }
   ];
 
-  // A Mágica do PDF Perfeito
-  const exportarPDF = async () => {
-    setGerandoPDF(true);
-    const element = document.getElementById('relatorio-cigas');
-    
-    try {
-      // Captura a tela com o dobro da resolução (scale: 2) para o PDF não ficar embaçado
-      const canvas = await html2canvas(element, { scale: 2, useCORS: true });
-      const imgData = canvas.toDataURL('image/png');
-      
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-      pdf.save('CIGAS_Relatorio_Midia.pdf');
-    } catch (error) {
-      console.error("Erro ao gerar PDF", error);
-    } finally {
-      setGerandoPDF(false);
-    }
+  // 3. Função para Imprimir/Gerar PDF
+  const handlePrint = () => {
+    window.print();
   };
 
   return (
-    <div className="w-full">
-      {/* Botão de Exportar Fica de Fora do PDF */}
-      <div className="flex justify-end mb-6">
-        <button 
-          onClick={exportarPDF} 
-          disabled={gerandoPDF}
-          className="flex items-center gap-2 px-6 py-3 bg-[#0a2540] dark:bg-blue-600 text-white font-bold rounded-xl hover:bg-blue-800 transition-colors shadow-lg disabled:opacity-50"
-        >
-          <FileDown size={20} />
-          {gerandoPDF ? 'Processando Documento...' : 'Baixar Relatório Oficial (PDF)'}
+    <div className="max-w-7xl mx-auto w-full space-y-6">
+      
+      {/* Cabeçalho do Relatório */}
+      <div className="flex justify-between items-center bg-white dark:bg-[#0a2540] p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-[#1a3a5c]">
+        <div>
+          <h1 className="text-2xl font-black text-slate-800 dark:text-white">Relatório Consolidado de Mídia</h1>
+          <p className="text-slate-500 text-sm mt-1">Análise automatizada de sentimento e volume de publicações.</p>
+        </div>
+        <button onClick={handlePrint} className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-xl font-semibold hover:bg-blue-700 transition shadow-sm print:hidden">
+          <Download size={18} /> Salvar PDF
         </button>
       </div>
 
-      {/* ÁREA QUE VAI PARA O PDF (Tudo dentro desta div) */}
-      <div id="relatorio-cigas" className="bg-white dark:bg-[#0d2640] p-10 rounded-2xl shadow-sm border border-slate-200 dark:border-[#1a3a5c]">
+      {/* Cards de Resumo */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div className="bg-white dark:bg-[#0a2540] p-6 rounded-2xl border border-slate-100 dark:border-[#1a3a5c] shadow-sm">
+          <div className="text-slate-500 mb-2 font-medium">Total de Menções</div>
+          <div className="text-4xl font-black text-slate-800 dark:text-white">{total}</div>
+        </div>
+        <div className="bg-emerald-50 dark:bg-emerald-900/20 p-6 rounded-2xl border border-emerald-100 dark:border-emerald-800/30 shadow-sm">
+          <div className="text-emerald-600 dark:text-emerald-400 mb-2 font-medium flex items-center gap-2"><CheckCircle size={16}/> Positivas</div>
+          <div className="text-4xl font-black text-emerald-700 dark:text-emerald-500">{positivas}</div>
+        </div>
+        <div className="bg-red-50 dark:bg-red-900/20 p-6 rounded-2xl border border-red-100 dark:border-red-800/30 shadow-sm">
+          <div className="text-red-600 dark:text-red-400 mb-2 font-medium flex items-center gap-2"><AlertTriangle size={16}/> Crises / Alertas</div>
+          <div className="text-4xl font-black text-red-700 dark:text-red-500">{negativas}</div>
+        </div>
+        <div className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+          <div className="text-slate-500 dark:text-slate-400 mb-2 font-medium flex items-center gap-2"><Info size={16}/> Neutras</div>
+          <div className="text-4xl font-black text-slate-700 dark:text-slate-300">{neutras}</div>
+        </div>
+      </div>
+
+      {/* Gráficos */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
-        {/* Cabeçalho do Documento */}
-        <div className="border-b-2 border-slate-100 dark:border-[#1a3a5c] pb-6 mb-8 flex justify-between items-end">
-          <div>
-            <h1 className="text-3xl font-black text-[#0a2540] dark:text-white tracking-tight mb-2">Relatório Executivo de Mídia</h1>
-            <p className="text-slate-500 dark:text-slate-400 font-medium">Companhia de Gás do Amazonas (CIGÁS)</p>
-          </div>
-          <div className="text-right">
-            <p className="text-sm font-bold text-slate-800 dark:text-slate-200">Data de Emissão</p>
-            <p className="text-slate-500 dark:text-slate-400">{new Date().toLocaleDateString('pt-BR')}</p>
-          </div>
-        </div>
-
-        {/* Cards de Resumo */}
-        <div className="grid grid-cols-4 gap-4 mb-10">
-          <div className="bg-slate-50 dark:bg-[#071a2f] p-6 rounded-xl border border-slate-100 dark:border-[#1a3a5c]">
-            <Activity className="text-blue-500 mb-3" size={28} />
-            <p className="text-sm text-slate-500 dark:text-slate-400 font-bold uppercase">Total Coletado</p>
-            <p className="text-3xl font-black text-slate-800 dark:text-white">{totais.TOTAL}</p>
-          </div>
-          <div className="bg-red-50 dark:bg-red-900/20 p-6 rounded-xl border border-red-100 dark:border-red-900/30">
-            <AlertTriangle className="text-red-500 mb-3" size={28} />
-            <p className="text-sm text-red-800 dark:text-red-400 font-bold uppercase">Risco (Negativas)</p>
-            <p className="text-3xl font-black text-red-600 dark:text-red-500">{totais.NEG}</p>
-          </div>
-          <div className="bg-emerald-50 dark:bg-emerald-900/20 p-6 rounded-xl border border-emerald-100 dark:border-emerald-900/30">
-            <CheckCircle className="text-emerald-500 mb-3" size={28} />
-            <p className="text-sm text-emerald-800 dark:text-emerald-400 font-bold uppercase">Positivas</p>
-            <p className="text-3xl font-black text-emerald-600 dark:text-emerald-500">{totais.POS}</p>
-          </div>
-          <div className="bg-slate-100 dark:bg-slate-800/50 p-6 rounded-xl border border-slate-200 dark:border-slate-700">
-            <MinusCircle className="text-slate-500 dark:text-slate-400 mb-3" size={28} />
-            <p className="text-sm text-slate-600 dark:text-slate-400 font-bold uppercase">Neutras</p>
-            <p className="text-3xl font-black text-slate-700 dark:text-slate-300">{totais.NEU}</p>
-          </div>
-        </div>
-
-        {/* Gráfico */}
-        <div className="mb-10">
-          <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-6 border-l-4 border-blue-500 pl-3">Distribuição de Sentimento</h2>
-          <div className="h-80 bg-slate-50 dark:bg-[#071a2f] rounded-xl border border-slate-100 dark:border-[#1a3a5c] p-4">
+        {/* Gráfico de Pizza */}
+        <div className="bg-white dark:bg-[#0a2540] p-6 rounded-2xl border border-slate-100 dark:border-[#1a3a5c] shadow-sm">
+          <h2 className="text-lg font-bold text-slate-800 dark:text-white mb-6">Distribuição de Sentimento</h2>
+          <div className="h-72">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie data={data} cx="50%" cy="50%" innerRadius={80} outerRadius={110} paddingAngle={5} dataKey="value">
-                  {data.map((entry, index) => (
+                <Pie data={dadosSentimento} cx="50%" cy="50%" innerRadius={80} outerRadius={110} paddingAngle={5} dataKey="value">
+                  {dadosSentimento.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}
                 </Pie>
                 <Tooltip />
-                <Legend verticalAlign="bottom" height={36}/>
+                <Legend />
               </PieChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        <div className="text-center text-xs text-slate-400 mt-10 pt-4 border-t border-slate-100 dark:border-[#1a3a5c]">
-          Documento gerado automaticamente pelo Sistema de Monitoramento de Mídia CIGÁS. Confidencial.
+        {/* Lista das Últimas Crises (Para o PDF) */}
+        <div className="bg-white dark:bg-[#0a2540] p-6 rounded-2xl border border-slate-100 dark:border-[#1a3a5c] shadow-sm overflow-hidden flex flex-col">
+          <h2 className="text-lg font-bold text-red-600 dark:text-red-400 mb-4 flex items-center gap-2">
+            <AlertTriangle size={20} /> Relatório de Crises (Recentes)
+          </h2>
+          <div className="flex-1 overflow-y-auto pr-2">
+            {noticias.filter(n => n.sentimento === 'NEG').slice(0, 4).map(noticia => (
+              <div key={noticia.id} className="mb-4 pb-4 border-b border-slate-100 dark:border-[#1a3a5c] last:border-0">
+                <div className="text-xs text-slate-400 mb-1">{new Date(noticia.data_publicacao).toLocaleDateString('pt-BR')} - {noticia.fonte_nome}</div>
+                <div className="font-bold text-slate-800 dark:text-white text-sm">{noticia.titulo}</div>
+              </div>
+            ))}
+            {negativas === 0 && (
+              <div className="text-slate-500 text-sm text-center mt-10">Nenhuma crise registrada no período.</div>
+            )}
+          </div>
         </div>
+
       </div>
     </div>
   );
